@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZeroCat Terminal</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.1.0/css/xterm.css" />
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #fff;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: #2d2d2d;
+            border-radius: 8px;
+        }
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #666;
+        }
+        .status-indicator.connected {
+            background: #4CAF50;
+        }
+        .status-indicator.disconnected {
+            background: #f44336;
+        }
+        .terminal-container {
+            background: #000;
+            padding: 10px;
+            border-radius: 8px;
+            height: 600px;
+            position: relative;
+            display: none;
+        }
+        #terminal {
+            width: 100%;
+            height: 100%;
+        }
+        .button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            background: #4CAF50;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+        .button:hover {
+            background: #45a049;
+        }
+        .button.danger {
+            background: #f44336;
+        }
+        .button.danger:hover {
+            background: #da190b;
+        }
+        .session-info {
+            font-size: 14px;
+            color: #bbb;
+        }
+        .login-container {
+            max-width: 500px;
+            margin: 100px auto;
+            padding: 20px;
+            background: #2d2d2d;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .login-container h2 {
+            margin: 0 0 20px;
+            color: #fff;
+            text-align: center;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #bbb;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #444;
+            border-radius: 4px;
+            background: #1e1e1e;
+            color: #fff;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+        .error-message {
+            color: #f44336;
+            font-size: 14px;
+            margin-top: 5px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 登录表单 -->
+        <div id="loginForm" class="login-container">
+            <h2>CodeRun 登录</h2>
+            <div class="form-group">
+                <label for="token">JWT令牌</label>
+                <input type="text" id="token" placeholder="输入你的JWT令牌" />
+                <div id="tokenError" class="error-message">无效的令牌</div>
+            </div>
+            <button id="loginBtn" class="button">连接</button>
+        </div>
+
+        <!-- 终端界面 -->
+        <div id="terminalUI" style="display: none;">
+            <div class="header">
+                <div class="status">
+                    <div id="statusIndicator" class="status-indicator"></div>
+                    <span id="statusText">已断开</span>
+                </div>
+                <div class="session-info">
+                    <span id="sessionTime">会话时间: 00:00:00</span>
+                </div>
+                <div class="actions">
+                    <button id="terminateBtn" class="button danger" style="display: none;">终止会话</button>
+                    <button id="reconnectBtn" class="button" style="display: none;">重新连接</button>
+                    <button id="logoutBtn" class="button danger">退出</button>
+                </div>
+            </div>
+            <div class="terminal-container">
+                <div id="terminal"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.1.0/lib/xterm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.7.0/lib/xterm-addon-fit.js"></script>
+    <script>
+        class TerminalManager {
+            constructor() {
+                this.term = new Terminal({
+                    cursorBlink: true,
+                    fontSize: 14,
+                    fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+                    theme: {
+                        background: '#000000',
+                        foreground: '#ffffff'
+                    }
+                });
+                this.fitAddon = new FitAddon.FitAddon();
+                this.term.loadAddon(this.fitAddon);
+                this.ws = null;
+                this.connected = false;
+                this.sessionStartTime = null;
+                this.sessionTimer = null;
+                this.token = null;
+
+                // UI elements
+                this.loginForm = document.getElementById('loginForm');
+                this.terminalUI = document.getElementById('terminalUI');
+                this.statusIndicator = document.getElementById('statusIndicator');
+                this.statusText = document.getElementById('statusText');
+                this.sessionTimeElement = document.getElementById('sessionTime');
+                this.terminateBtn = document.getElementById('terminateBtn');
+                this.reconnectBtn = document.getElementById('reconnectBtn');
+                this.logoutBtn = document.getElementById('logoutBtn');
+                this.tokenInput = document.getElementById('token');
+                this.tokenError = document.getElementById('tokenError');
+                this.loginBtn = document.getElementById('loginBtn');
+
+                this.initEventListeners();
+            }
+
+            initEventListeners() {
+                this.loginBtn.addEventListener('click', () => this.login());
+                this.logoutBtn.addEventListener('click', () => this.logout());
+                this.terminateBtn.addEventListener('click', () => this.terminateSession());
+                this.reconnectBtn.addEventListener('click', () => this.connect());
+
+                // 支持按Enter键登录
+                this.tokenInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        this.login();
+                    }
+                });
+
+                window.addEventListener('resize', () => {
+                    if (this.connected) {
+                        this.fitAddon.fit();
+                    }
+                });
+            }
+
+            async login() {
+                const token = this.tokenInput.value.trim();
+                if (!token) {
+                    this.showError('请输入令牌');
+                    return;
+                }
+
+                try {
+                    // 验证token格式
+                    const tokenParts = token.split('.');
+                    if (tokenParts.length !== 3) {
+                        throw new Error('无效的令牌格式');
+                    }
+
+                    // 保存token并初始化终端
+                    this.token = token;
+                    this.showTerminal();
+                    this.initTerminal();
+                    this.connect();
+                } catch (error) {
+                    this.showError('无效的令牌格式');
+                }
+            }
+
+            logout() {
+                if (this.ws) {
+                    this.ws.close();
+                }
+                this.token = null;
+                this.showLoginForm();
+            }
+
+            showError(message) {
+                this.tokenError.textContent = message;
+                this.tokenError.style.display = 'block';
+                setTimeout(() => {
+                    this.tokenError.style.display = 'none';
+                }, 3000);
+            }
+
+            showLoginForm() {
+                this.loginForm.style.display = 'block';
+                this.terminalUI.style.display = 'none';
+                this.tokenInput.value = '';
+            }
+
+            showTerminal() {
+                this.loginForm.style.display = 'none';
+                this.terminalUI.style.display = 'block';
+                document.querySelector('.terminal-container').style.display = 'block';
+            }
+
+            initTerminal() {
+                if (!this.term) return;
+                this.term.open(document.getElementById('terminal'));
+                this.fitAddon.fit();
+            }
+
+            updateStatus(connected) {
+                this.connected = connected;
+                this.statusIndicator.className = `status-indicator ${connected ? 'connected' : 'disconnected'}`;
+                this.statusText.textContent = connected ? '已连接' : '已断开';
+                this.terminateBtn.style.display = connected ? 'block' : 'none';
+                this.reconnectBtn.style.display = connected ? 'none' : 'block';
+
+                if (connected) {
+                    this.sessionStartTime = Date.now();
+                    this.updateSessionTime();
+                    this.sessionTimer = setInterval(() => this.updateSessionTime(), 1000);
+                } else {
+                    if (this.sessionTimer) {
+                        clearInterval(this.sessionTimer);
+                        this.sessionTimer = null;
+                    }
+                }
+            }
+
+            updateSessionTime() {
+                if (!this.sessionStartTime) return;
+
+                const diff = Date.now() - this.sessionStartTime;
+                const hours = Math.floor(diff / 3600000);
+                const minutes = Math.floor((diff % 3600000) / 60000);
+                const seconds = Math.floor((diff % 60000) / 1000);
+
+                this.sessionTimeElement.textContent = `Session time: ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            }
+
+            connect() {
+                if (!this.token) {
+                    this.showLoginForm();
+                    return;
+                }
+
+                if (this.ws) {
+                    this.ws.close();
+                }
+
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                this.ws = new WebSocket(`${protocol}//${window.location.host}/terminal?token=${this.token}`);
+
+                this.ws.onopen = () => {
+                    this.updateStatus(true);
+                    this.term.write('\r\n[ZeroCat CodeRun] 🚀 连接成功\r\n');
+                };
+
+                this.ws.onclose = () => {
+                    this.updateStatus(false);
+                    this.term.write('\r\n[ZeroCat CodeRun] ❌ 连接已断开\r');
+                };
+
+                this.ws.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    this.term.write('\r\n[ZeroCat CodeRun] ❌ 连接错误\r');
+                };
+
+                this.ws.onmessage = (event) => {
+                    this.term.write(event.data);
+                };
+
+                this.term.onData(data => {
+                    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                        this.ws.send(data);
+                    }
+                });
+            }
+
+            async terminateSession() {
+                try {
+                    const response = await fetch('/terminal/terminate', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${this.token}`
+                        }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('终止会话失败');
+                    }
+
+                    if (this.ws) {
+                        this.ws.close();
+                    }
+                } catch (error) {
+                    console.error('终止会话失败:', error);
+                    this.term.write('\r\n[ZeroCat CodeRun] ❌ 终止会话失败\r\n');
+                }
+            }
+        }
+
+        // Initialize terminal when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            window.terminal = new TerminalManager();
+        });
+    </script>
+</body>
+</html>

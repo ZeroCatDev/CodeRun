@@ -1,0 +1,31 @@
+{
+  "name": "coderun",
+  "version": "0.0.0",
+  "private": true,
+  "nodemonConfig": {
+    "ignore": ["**/data/**"],
+    "delay": 2500
+  },
+  "scripts": {
+    "start": "node ./bin/www",
+    "dev": "nodemon ./bin/www"
+  },
+  "dependencies": {
+    "axios": "^1.6.7",
+    "cookie-parser": "~1.4.4",
+    "debug": "~2.6.9",
+    "dockerode": "^3.3.5",
+    "dotenv": "^16.6.1",
+    "ejs": "~2.6.1",
+    "express": "~4.16.1",
+    "http-errors": "~1.6.3",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "~1.9.1",
+    "ws": "^8.13.0",
+    "xterm": "^5.1.0",
+    "xterm-addon-fit": "^0.7.0"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.22"
+  }
+}

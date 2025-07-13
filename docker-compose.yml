@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  coderun:
+    build: .
+    container_name: coderun
+    ports:
+      - "3033:3000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - zerocat-coderun-data:/app/data
+    environment:
+      - NODE_ENV=production
+      - DOCKER_SOCKET=/var/run/docker.sock
+      - AUTH_SITE=http://host.docker.internal:3000
+      - AUTH_TOKEN=oin8z2di3vzdxoyifj2dp
+    restart: unless-stopped
+    networks:
+      - coderun-net
+
+
+networks:
+  coderun-net:
+    driver: bridge

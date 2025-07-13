@@ -6,15 +6,10 @@ const authConfig = require('./auth-config');
 
 class AdminService {
   constructor() {
-    this.config = {
-      enabled: true,
-      poolSize: config.docker.containerPoolSize,
-      site: config.site.url,
-      authSite: config.site.authSite,
-      reportInterval: 60000, // 1 minute
-      lastConfigUpdate: new Date(),
-      lastReport: new Date()
-    };
+    this.config = config.admin;
+    this.config.site = config.site.url;
+    this.config.authSite = config.site.authSite;
+    this.config.jwtSecret = config.jwt.secret;
 
     // Delay initialization to avoid circular dependency
     setTimeout(() => {
@@ -152,19 +147,27 @@ class AdminService {
       const newConfig = response.data;
 
       console.log('[AdminService] 📝 应用新配置');
+      console.log(newConfig);
 
-      // Update configuration
-      this.config = {
-        ...this.config,
-        ...newConfig,
-        lastConfigUpdate: new Date()
-      };
+      if (newConfig.config) {
+        // 更新全局 JWT secret
+        if (newConfig.config.jwtSecret) {
+          config.jwt.secret = newConfig.config.jwtSecret;
+        }
 
-      // Apply pool size changes if needed
-      if (newConfig.poolSize !== undefined && this.terminalService) {
-        console.log(`[AdminService] 🔄 更新容器池大小到 ${newConfig.poolSize}`);
-        this.terminalService.CONTAINER_POOL_SIZE = newConfig.poolSize;
-        await this.terminalService.maintainContainerPool();
+        // 更新 admin 配置
+        this.config = {
+          ...this.config,
+          ...newConfig.config,
+          lastConfigUpdate: new Date()
+        };
+
+        // Apply pool size changes if needed
+        if (newConfig.config.poolSize !== undefined && this.terminalService) {
+          console.log(`[AdminService] 🔄 更新容器池大小到 ${newConfig.config.poolSize}`);
+          this.terminalService.CONTAINER_POOL_SIZE = newConfig.config.poolSize;
+          await this.terminalService.maintainContainerPool();
+        }
       }
 
       await authConfig.updateLastUpdated();

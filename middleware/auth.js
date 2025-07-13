@@ -14,8 +14,8 @@ async function validateToken(req, res, next) {
   }
 
   try {
-    // For admin endpoints, validate against runner token
-    if (req.path.startsWith('/admin/')) {
+    // For admin endpoints, validate against runner token (only for HTTP requests)
+    if (req.path && req.path.startsWith('/admin/')) {
       const isValid = await adminService.validateAuthToken(token);
       if (!isValid) {
         return res.status(401).json({ error: 'Invalid admin token' });
@@ -24,12 +24,13 @@ async function validateToken(req, res, next) {
       return;
     }
 
-    // For other endpoints, validate JWT
+    // For other endpoints and WebSocket connections, validate JWT
     const decoded = jwt.verify(token, config.jwt.secret);
     req.user = decoded;
     next();
   } catch (error) {
-    return res.status(401).json({ error: 'Invalid token' });
+    console.error('[Auth] ❌ 无效的令牌:', error);
+    return res.status(401).json({ error: '无效的令牌' });
   }
 }
 

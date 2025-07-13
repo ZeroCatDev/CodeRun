@@ -3,7 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "nodemonConfig": {
-    "ignore": ["**/data/**"],
+    "ignore": [
+      "**/data/**"
+    ],
     "delay": 2500
   },
   "scripts": {
@@ -12,6 +14,7 @@
   },
   "dependencies": {
     "axios": "^1.6.7",
+    "body-parser": "^2.2.0",
     "cookie-parser": "~1.4.4",
     "debug": "~2.6.9",
     "dockerode": "^3.3.5",

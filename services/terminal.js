@@ -1,7 +1,20 @@
 const Docker = require("dockerode");
 const WebSocket = require("ws");
 const url = require('url');
-const docker = new Docker();
+const path = require('path');
+
+// 配置Docker连接
+const docker = new Docker({
+  socketPath: process.env.DOCKER_SOCKET || '/var/run/docker.sock',
+  // 如果使用TCP连接（可选）
+  // host: process.env.DOCKER_HOST || 'localhost',
+  // port: process.env.DOCKER_PORT || 2375,
+  // 如果需要TLS认证（可选）
+  // ca: process.env.DOCKER_CA_FILE ? fs.readFileSync(process.env.DOCKER_CA_FILE) : null,
+  // cert: process.env.DOCKER_CERT_FILE ? fs.readFileSync(process.env.DOCKER_CERT_FILE) : null,
+  // key: process.env.DOCKER_KEY_FILE ? fs.readFileSync(process.env.DOCKER_KEY_FILE) : null,
+});
+
 const sessionManager = require('./session-manager');
 const { validateToken } = require('../middleware/auth');
 const config = require('../config');
@@ -263,7 +276,7 @@ class TerminalService {
             "NET_BIND_SERVICE",
             "SYS_CHROOT",
           ],
-          NetworkMode: "bridge",
+          NetworkMode: "none",
           OomKillDisable: false,
           MemorySwappiness: 0,
           Init: true
@@ -277,13 +290,15 @@ class TerminalService {
       await this.waitForContainerReady(container);
 
       console.log(`[TerminalService] ✅ 容器 ${containerName} 启动成功`);
+      return container;  // Add this line to return the container
 
     } catch (error) {
       console.error("[TerminalService] ❌ 创建容器时出错:", error);
       throw {
         code: "CONTAINER_ERROR",
         message: "Failed to create container: " + error.message,
-      };    }
+      };
+    }
   }
 
   async waitForContainerReady(container) {
@@ -319,38 +334,6 @@ class TerminalService {
     }
 
     throw new Error("Container failed to become ready");
-  }
-
-  async prepareExec(container) {
-    const exec = await container.exec({
-      AttachStdin: true,
-      AttachStdout: true,
-      AttachStderr: true,
-      Tty: true,
-      Cmd: ["/bin/bash"],
-      Env: [
-        "TERM=xterm-256color",
-        "PS1=\\[\\033[01;32m\\]\\u@\\h\\[\\033[00m\\]:\\[\\033[01;34m\\]\\w\\[\\033[00m\\]\\$ "
-      ]
-    });
-
-    const stream = await exec.start({
-      hijack: true,
-      stdin: true,
-    });
-
-    // Send initial commands to setup environment
-    const setupCommands = [
-      "export TERM=xterm-256color\n",
-      "export PS1='\\[\\033[01;32m\\]\\u@\\h\\[\\033[00m\\]:\\[\\033[01;34m\\]\\w\\[\\033[00m\\]\\$ '\n",
-      "clear\n"
-    ];
-
-    for (const cmd of setupCommands) {
-      stream.write(cmd);
-    }
-
-    return stream;
   }
 
   async handleConnection(ws, req) {
@@ -483,6 +466,38 @@ class TerminalService {
         }
       }
     }
+  }
+
+  async prepareExec(container) {
+    const exec = await container.exec({
+      AttachStdin: true,
+      AttachStdout: true,
+      AttachStderr: true,
+      Tty: true,
+      Cmd: ["/bin/bash"],
+      Env: [
+        "TERM=xterm-256color",
+        "PS1=\\[\\033[01;32m\\]\\u@\\h\\[\\033[00m\\]:\\[\\033[01;34m\\]\\w\\[\\033[00m\\]\\$ "
+      ]
+    });
+
+    const stream = await exec.start({
+      hijack: true,
+      stdin: true,
+    });
+
+    // Send initial commands to setup environment
+    const setupCommands = [
+      "export TERM=xterm-256color\n",
+      "export PS1='\\[\\033[01;32m\\]\\u@\\h\\[\\033[00m\\]:\\[\\033[01;34m\\]\\w\\[\\033[00m\\]\\$ '\n",
+      "clear\n"
+    ];
+
+    for (const cmd of setupCommands) {
+      stream.write(cmd);
+    }
+
+    return stream;
   }
 }
 

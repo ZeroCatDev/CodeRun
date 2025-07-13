@@ -26,7 +26,7 @@ router.post('/terminate', validateToken, async (req, res) => {
     res.json({ success: true, message: '所有会话已终止' });
   } catch (error) {
     console.error('❌ 终止会话失败:', error);
-    res.status(500).json({ error: 'Failed to terminate sessions' });
+    res.status(200).json({ error: 'Failed to terminate sessions' });
   }
 });
 

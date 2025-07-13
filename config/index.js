@@ -7,8 +7,8 @@ const config = {
   },
 
   jwt: {
-    secret: process.env.JWT_SECRET || 'G2QSZJiPGnNl4cSbQqw5uwCk9KynJQ',
-    expiresIn: process.env.JWT_EXPIRES_IN || '24h',
+    secret: '', // 将从云端获取
+    expiresIn: '24h',
   },
 
   site: {
@@ -28,19 +28,20 @@ const config = {
     format: process.env.LOG_FORMAT || 'dev',
   },
 
-  security: {
-    cookieSecret: process.env.COOKIE_SECRET || 'your-cookie-secret',
-    secureCookies: process.env.SECURE_COOKIES === 'true',
+  admin: {
+    enabled: process.env.ADMIN_ENABLED !== 'false', // 默认为true
+    poolSize: parseInt(process.env.ADMIN_POOL_SIZE, 10) || 2,
+    reportInterval: parseInt(process.env.ADMIN_REPORT_INTERVAL, 10) || 60000,
+    lastConfigUpdate: new Date(),
+    lastReport: new Date()
   }
 };
 
 // 验证必需的配置
 function validateConfig() {
   const requiredInProduction = [
-    'JWT_SECRET',
     'AUTH_SITE',
-    'AUTH_TOKEN',
-    'COOKIE_SECRET'
+    'AUTH_TOKEN'
   ];
 
   if (config.server.env === 'production') {
@@ -49,9 +50,6 @@ function validateConfig() {
         throw new Error(`Missing required environment variable in production: ${key}`);
       }
     }
-
-    // 在生产环境强制启用安全cookie
-    config.security.secureCookies = true;
   }
 }
 
@@ -59,9 +57,8 @@ function validateConfig() {
 function logConfig() {
   const sanitizedConfig = JSON.parse(JSON.stringify(config));
   // 隐藏敏感信息
-  sanitizedConfig.jwt.secret = '***';
   sanitizedConfig.site.authToken = '***';
-  sanitizedConfig.security.cookieSecret = '***';
+  sanitizedConfig.jwt.secret = '***';
 
   console.log('[Config] 📝 当前配置');
   //console.log(JSON.stringify(sanitizedConfig, null, 2));

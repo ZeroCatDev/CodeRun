@@ -5,7 +5,7 @@ const path = require('path');
 
 // 配置Docker连接
 const docker = new Docker({
-  socketPath: process.env.DOCKER_SOCKET || '/var/run/docker.sock',
+  //socketPath: process.env.DOCKER_SOCKET || '/var/run/docker.sock',
   // 如果使用TCP连接（可选）
   // host: process.env.DOCKER_HOST || 'localhost',
   // port: process.env.DOCKER_PORT || 2375,
@@ -16,8 +16,8 @@ const docker = new Docker({
 });
 
 const sessionManager = require('./session-manager');
-const { validateToken } = require('../middleware/auth');
-const config = require('../config');
+const authService = require('./auth');
+const config = require('./config');
 
 const CUSTOM_IMAGE = config.docker.customImage;
 let CONTAINER_POOL_SIZE = config.docker.containerPoolSize;
@@ -347,7 +347,7 @@ class TerminalService {
       }
 
       await new Promise((resolve, reject) => {
-        validateToken(
+        authService.validateToken(
           { headers: { authorization: `Bearer ${token}` } },
           {
             status: () => ({

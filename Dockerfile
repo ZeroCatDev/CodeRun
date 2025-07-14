@@ -1,4 +1,4 @@
-FROM node:18-slim
+FROM node:22-slim
 
 # 设置工作目录
 WORKDIR /app
@@ -10,13 +10,10 @@ RUN apt-get update && apt-get install -y \
 
 # 复制package文件
 COPY package*.json ./
-COPY pnpm-lock.yaml ./
 
-# 安装pnpm
-RUN npm install -g pnpm
 
 # 安装依赖
-RUN pnpm install
+RUN npm install
 
 # 复制应用代码
 COPY . .
@@ -25,4 +22,4 @@ COPY . .
 EXPOSE 3000
 
 # 启动命令
-CMD ["pnpm", "start"]
+CMD ["npm", "start"]

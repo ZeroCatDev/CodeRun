@@ -3,96 +3,32 @@ const path = require('path');
 const cookieParser = require('cookie-parser');
 const logger = require('morgan');
 const WebSocket = require('ws');
-const { terminalService } = require('./services/terminal');
-const adminService = require('./services/admin');
-const { validateToken } = require('./middleware/auth');
-const jwt = require('jsonwebtoken');
-const config = require('./config');
-const bodyParser = require('body-parser');
+const http = require('http');
 
 const indexRouter = require('./routes/index');
-const usersRouter = require('./routes/users');
-const terminalRouter = require('./routes/terminal');
-const adminRouter = require('./routes/admin');
+const authService = require('./services/auth');
+const { terminalService } = require('./services/terminal');
 
 const app = express();
 
-// view engine setup
+// 视图引擎设置
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
 
-// middleware setup
-app.use(logger(config.logging.format));
+// 中间件
+app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
-app.use(bodyParser.urlencoded({ limit: "100mb", extended: false }));
-app.use(bodyParser.json({ limit: "100mb" }));
-app.use(bodyParser.text({ limit: "100mb" }));
-app.use(bodyParser.raw({ limit: "100mb" }));
 
-// Security headers
-app.use((req, res, next) => {
-  res.set({
-    'X-Content-Type-Options': 'nosniff',
-    'X-Frame-Options': 'DENY',
-    'X-XSS-Protection': '1; mode=block'
-  });
-  next();
-});
+// 认证中间件
+app.use(authService.validateToken.bind(authService));
 
-// Routes
+// 路由
 app.use('/', indexRouter);
-app.use('/users', usersRouter);
-app.use('/terminal', terminalRouter);
-app.use('/admin', adminRouter);
 
-// WebSocket server setup
-const wss = new WebSocket.Server({ noServer: true });
-
-// WebSocket authentication middleware
-async function authenticateWebSocket(request, socket, head) {
-  try {
-    // 从URL参数中获取token
-    const url = new URL(request.url, `http://${request.headers.host}`);
-    const token = url.searchParams.get('token');
-
-    if (!token) {
-      socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-      socket.destroy();
-      return;
-    }
-
-    // 验证token并解码用户信息
-    const decoded = jwt.verify(token, config.jwt.secret);
-    request.user = {
-      userid: decoded.userid,
-      fingerprint: decoded.fingerprint
-    };
-
-    // 升级连接
-    wss.handleUpgrade(request, socket, head, (ws) => {
-      wss.emit('connection', ws, request);
-    });
-  } catch (error) {
-    console.error('WebSocket authentication failed:', error);
-    socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-    socket.destroy();
-  }
-}
-
-// Handle WebSocket connections
-wss.on('connection', (ws, request) => {
-  try {
-    terminalService.handleConnection(ws, request);
-  } catch (error) {
-    console.error('Failed to handle WebSocket connection:', error);
-    ws.close(1008, 'Authentication failed');
-  }
-});
-
-// Error handler
+// 错误处理
 app.use(function(err, req, res, next) {
   console.error(err.stack);
   res.status(err.status || 500);
@@ -102,4 +38,32 @@ app.use(function(err, req, res, next) {
   });
 });
 
-module.exports = { app, authenticateWebSocket };
+// WebSocket服务器设置
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
+
+wss.on('connection', async (ws, req) => {
+  try {
+    // 解析token
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const token = url.searchParams.get('token');
+
+    // 验证token
+    req.headers.authorization = `Bearer ${token}`;
+    await new Promise((resolve, reject) => {
+      authService.validateToken(
+        req,
+        { status: () => ({ json: (data) => reject(new Error(data.error)) }) },
+        resolve
+      );
+    });
+
+    // 处理终端连接
+    await terminalService.handleConnection(ws, req);
+  } catch (error) {
+    console.error('WebSocket连接错误:', error);
+    ws.close(1008, 'Authentication failed');
+  }
+});
+
+module.exports = { app, server };

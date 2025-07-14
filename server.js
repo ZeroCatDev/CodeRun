@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-const { app, server } = require('../app');
-const config = require('../services/config');
+const { app, server } = require('./app');
+const config = require('./services/config');
 const debug = require('debug')('coderun:server');
 
 // 获取端口

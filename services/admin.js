@@ -1,8 +1,8 @@
 const axios = require('axios');
 const docker = new (require('dockerode'))();
 const sessionManager = require('./session-manager');
-const config = require('../config');
-const authConfig = require('./auth-config');
+const config = require('./config');
+const authService = require('./auth');
 
 class AdminService {
   constructor() {
@@ -26,7 +26,7 @@ class AdminService {
   }
 
   logResponse(method, url, response) {
-    console.log(`[AdminService] 📥 [${new Date().toISOString()}] ${method.toUpperCase()} ${url} - 状态: ${response.status}`);
+    //console.log(`[AdminService] 📥 [${new Date().toISOString()}] ${method.toUpperCase()} ${url} - 状态: ${response.status}`);
     //console.log('Response Data:', JSON.stringify(response.data, null, 2));
   }
 
@@ -42,7 +42,7 @@ class AdminService {
       console.log('[AdminService] 🚀 初始化管理服务...');
 
       // 确保已注册
-      await authConfig.getRunnerConfig();
+      await authService.getRunnerConfig();
 
       // Start reporting interval
       setInterval(() => this.reportDeviceStatus(), this.config.reportInterval);
@@ -88,14 +88,13 @@ class AdminService {
       },
       coderun: {
         version: require('../package.json').version,
-        enabled: this.config.enabled,
         poolSize: this.config.poolSize,
         activeConnections: sessionManager.getActiveSessionCount(),
         pooledContainers: this.terminalService ? this.terminalService.containerPool.length : 0,
         site: this.config.site,
         lastConfigUpdate: this.config.lastConfigUpdate,
         lastReport: this.config.lastReport,
-        deviceId: await authConfig.getdeviceId()
+        deviceId: await authService.getDeviceId()
       }
     };
 
@@ -109,7 +108,7 @@ class AdminService {
     const url = `${this.config.authSite}/coderun/device`;
     try {
       const systemInfo = await this.getSystemInfo();
-      const runnerToken = await authConfig.getRunnerToken();
+      const runnerToken = await authService.getRunnerToken();
       this.logRequest('POST', url, systemInfo);
       const response = await axios.post(
         url,
@@ -121,7 +120,7 @@ class AdminService {
       this.logResponse('POST', url, response);
 
       this.config.lastReport = new Date();
-      await authConfig.updateLastUpdated();
+      await authService.updateLastUpdated();
       console.log('[AdminService] ✅ 设备状态上报成功'+new Date().toISOString());
     } catch (error) {
       this.logError('POST', url, error);
@@ -134,7 +133,7 @@ class AdminService {
 
     const url = `${this.config.authSite}/coderun/config`;
     try {
-      const runnerToken = await authConfig.getRunnerToken();
+      const runnerToken = await authService.getRunnerToken();
       this.logRequest('GET', url);
       const response = await axios.get(
         url,
@@ -170,7 +169,7 @@ class AdminService {
         }
       }
 
-      await authConfig.updateLastUpdated();
+      await authService.updateLastUpdated();
       console.log('[AdminService] ✅ 远程配置更新成功');
       return this.config;
     } catch (error) {
@@ -193,7 +192,7 @@ class AdminService {
   }
 
   async validateAuthToken(token) {
-    const runnerToken = await authConfig.getRunnerToken();
+    const runnerToken = await authService.getRunnerToken();
     const isValid = token === runnerToken;
     console.log(`[AdminService] 🔒 认证令牌验证: ${isValid ? '成功' : '失败'}`);
     return isValid;

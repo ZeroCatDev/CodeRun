@@ -1,5 +1,26 @@
 require('dotenv').config();
 
+// 从base64 token中解析配置
+function parseConfigFromToken() {
+  const token = process.env.TOKEN;
+  if (!token) return null;
+
+  try {
+    const decoded = Buffer.from(token, 'base64').toString('utf-8');
+    const config = JSON.parse(decoded);
+    return {
+      authSite: config.AUTH_SITE,
+      authToken: config.AUTH_TOKEN
+    };
+  } catch (error) {
+    console.error('[Config] ❌ Token解析错误:', error.message);
+    return null;
+  }
+}
+
+// 获取配置值
+const tokenConfig = parseConfigFromToken();
+
 const config = {
   server: {
     port: process.env.PORT || 3033,
@@ -13,8 +34,8 @@ const config = {
 
   site: {
     url: process.env.SITE || 'http://localhost:3033',
-    authSite: process.env.AUTH_SITE || '',
-    authToken: process.env.AUTH_TOKEN || '',
+    authSite: tokenConfig?.authSite || process.env.AUTH_SITE || '',
+    authToken: tokenConfig?.authToken || process.env.AUTH_TOKEN || '',
     deviceName: process.env.DEVICE_NAME || '',
   },
 
@@ -38,6 +59,18 @@ const config = {
 
 // 验证必需的配置
 function validateConfig() {
+  // 检查是否有token配置
+  if (process.env.TOKEN) {
+    if (!tokenConfig) {
+      throw new Error('TOKEN 解析失败');
+    }
+    if (!tokenConfig.authSite || !tokenConfig.authToken) {
+      throw new Error('TOKEN 中缺少必要的配置项 (AUTH_SITE 或 AUTH_TOKEN)');
+    }
+    return;
+  }
+
+  // 如果没有token，检查传统环境变量
   const requiredInProduction = [
     'AUTH_SITE',
     'AUTH_TOKEN'
@@ -51,7 +84,6 @@ function validateConfig() {
     }
   }
 }
-
 
 // 初始化配置
 try {

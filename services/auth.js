@@ -75,6 +75,7 @@ class AuthService {
     } catch (error) {
       console.error('[AuthService] ❌ Runner注册失败:', error.message);
       throw error;
+      process.exit(1);
     }
   }
 

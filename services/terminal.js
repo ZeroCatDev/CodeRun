@@ -5,7 +5,7 @@ const path = require('path');
 
 // 配置Docker连接
 const docker = new Docker({
-  // socketPath: process.env.DOCKER_SOCKET || '/var/run/docker.sock',
+  socketPath: process.env.DOCKER_SOCKET || '/var/run/docker.sock',
   // 如果使用TCP连接（可选）
   // host: process.env.DOCKER_HOST || 'localhost',
   // port: process.env.DOCKER_PORT || 2375,

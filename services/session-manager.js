@@ -1,4 +1,4 @@
-const WebSocket = require('ws');
+const WebSocket = require("ws");
 
 class Session {
   constructor(userid, fingerprint, ws, container) {
@@ -67,7 +67,7 @@ class SessionManager {
     try {
       // 关闭WebSocket连接
       if (session.ws && session.ws.readyState === WebSocket.OPEN) {
-        session.ws.close(1000, 'Session terminated');
+        session.ws.close(1000, "Session terminated");
       }
 
       // 停止并删除容器
@@ -102,7 +102,9 @@ class SessionManager {
 
   // 检查用户是否有活动会话
   hasActiveUserSession(userid) {
-    return this.userSessions.has(userid) && this.userSessions.get(userid).size > 0;
+    return (
+      this.userSessions.has(userid) && this.userSessions.get(userid).size > 0
+    );
   }
 
   // 检查fingerprint是否有活动会话

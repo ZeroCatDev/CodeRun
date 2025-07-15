@@ -5,7 +5,7 @@ const path = require('path');
 
 // 配置Docker连接
 const docker = new Docker({
-  socketPath: process.env.DOCKER_SOCKET || '/var/run/docker.sock',
+  // socketPath: process.env.DOCKER_SOCKET || '/var/run/docker.sock',
   // 如果使用TCP连接（可选）
   // host: process.env.DOCKER_HOST || 'localhost',
   // port: process.env.DOCKER_PORT || 2375,
@@ -17,16 +17,18 @@ const docker = new Docker({
 
 const sessionManager = require('./session-manager');
 const authService = require('./auth');
-const config = require('./config');
+const configStore = require('./config-store');
 
-const CUSTOM_IMAGE = config.docker.customImage;
-let CONTAINER_POOL_SIZE = config.docker.containerPoolSize;
+// Get custom image from config
+const CUSTOM_IMAGE = configStore.get('docker.custom_image');
+let CONTAINER_POOL_SIZE = configStore.get('docker.container_pool_size');
 const CONTAINER_PREFIX = "zerocat_term_"; // Container name prefix
 
 class TerminalService {
   constructor() {
     this.docker = docker;
     this.containerPool = [];
+    this.CONTAINER_POOL_SIZE = configStore.get('docker.container_pool_size');
     this.initDocker().catch((error) => {
       console.error("[Docker] ❌ Docker服务初始化失败:", error);
       process.exit(1);

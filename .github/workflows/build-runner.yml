@@ -4,8 +4,8 @@ on:
   push:
     branches: ["main"]
     tags: ["v*"]
-  pull_request:
-    branches: ["main"]
+    paths:
+      - "CodeRunner/**"
   workflow_dispatch:
 
 concurrency:
@@ -42,8 +42,8 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            sunwuyuan/coderun
-            ghcr.io/zerocatdev/coderun
+            sunwuyuan/coderunner
+            ghcr.io/zerocatdev/coderunner
           tags: |
             type=ref,event=branch
             type=ref,event=pr
@@ -59,7 +59,7 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: CodeRunner
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
 const { app, server } = require('./app');
-const config = require('./services/config');
+const configStore = require('./services/config-store');
 const debug = require('debug')('coderun:server');
 
 // 获取端口
-const port = normalizePort(config.server.port);
+const port = normalizePort(configStore.get('server.port'));
 app.set('port', port);
 
 // 启动服务器

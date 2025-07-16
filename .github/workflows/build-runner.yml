@@ -1,4 +1,4 @@
-name: Docker Build and Push
+name: 构建 Runner 镜像
 
 on:
   push:

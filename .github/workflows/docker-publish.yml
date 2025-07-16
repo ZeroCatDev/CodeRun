@@ -1,4 +1,4 @@
-name: Docker Build and Push
+name: 构建 CodeRun 控制端镜像
 
 on:
   push:

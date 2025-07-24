@@ -53,7 +53,7 @@ class ConfigStore {
 
       "docker.container_pool_size":
         parseInt(process.env.CONTAINER_POOL_SIZE, 10) || 2,
-      "docker.custom_image": "sunwuyuan/zerocat-runner:latest",
+      "docker.custom_image": "sunwuyuan/coderunner:latest",
 
       "logging.level": "info",
       "logging.format": "dev",
